@@ -1,0 +1,117 @@
+# Daily Query: Content Analytics dbt project (Snowflake)
+#
+# Models the Daily Query demo site (app_id demo_media_publishing_web) from the Snowplow Sales AWS
+# pipeline into the tables the Content Analytics Snowflake app reads:
+#   SE_DEMO_DB.CONTENT_ANALYTICS_DERIVED.SNOWPLOW_UNIFIED_{VIEWS,SESSIONS,USERS,USER_MAPPING,CONVERSIONS}
+#   SE_DEMO_DB.CONTENT_ANALYTICS_DERIVED.SNOWPLOW_MEDIA_PLAYER_{BASE,MEDIA_STATS,PLAYS_BY_PAGEVIEW}
+#
+# No custom models: snowplow_unified + snowplow_media_player, configured with Daily Query's
+# com.demo.media schemas. The output schema comes from the target's schema (profiles.yml) plus the
+# packages' suffixes: <schema>_derived, <schema>_scratch, <schema>_snowplow_manifest.
+
+name: daily_query
+version: 1.0.0
+config-version: 2
+profile: daily_query
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+# macros/channel_group_query.sql overrides Unified's channel grouping.
+dispatch:
+  - macro_namespace: snowplow_unified
+    search_order: ['daily_query', 'snowplow_unified']
+  - macro_namespace: dbt
+    search_order: ['snowplow_utils', 'dbt']
+
+# Daily Query source. Override with env vars to point at another events table.
+#   SNOWPLOW_EVENTS_DATABASE  default SNOWPLOW_SALES_AWS_PROD1_DB
+#   SNOWPLOW_EVENTS_SCHEMA    default ATOMIC
+#   SNOWPLOW_START_DATE       default 2026-06-01 (first Daily Query event: 2026-06-15)
+
+vars:
+  snowplow_unified:
+    snowplow__license_accepted: true
+    snowplow__database: "{{ env_var('SNOWPLOW_EVENTS_DATABASE', 'SNOWPLOW_SALES_AWS_PROD1_DB') }}"
+    snowplow__atomic_schema: "{{ env_var('SNOWPLOW_EVENTS_SCHEMA', 'ATOMIC') }}"
+    snowplow__start_date: "{{ env_var('SNOWPLOW_START_DATE', '2026-06-01') }}"
+    snowplow__app_id: ['demo_media_publishing_web']
+    snowplow__backfill_limit_days: 180
+    snowplow__enable_web: true
+    snowplow__enable_mobile: false
+    # Enrichments and contexts Daily Query sends.
+    snowplow__enable_iab: true
+    snowplow__enable_ua: true
+    snowplow__enable_yauaa: true
+    snowplow__enable_browser_context_2: true
+    snowplow__enable_conversions: true
+    snowplow__list_event_counts: true
+    # Must match the tracker's activity tracking (minimumVisitLength / heartbeatDelay).
+    snowplow__heartbeat: 10
+    snowplow__min_visit_length: 20
+    snowplow__use_refr_if_mkt_null: true
+
+    # Views: article metadata (iglu:com.demo.media/article) on every page view.
+    # Daily Query's article entity has no tags field; article_tags stays null but the app expects the column.
+    snowplow__view_passthroughs:
+      - {alias: article_id,       sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:article_id::varchar"}
+      - {alias: article_title,    sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:title::varchar"}
+      - {alias: article_author,   sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:author::varchar"}
+      - {alias: article_category, sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:category::varchar"}
+      - {alias: article_tags,     sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:tags"}
+
+    # Sessions: reading behaviour, from iglu:com.demo.media/article_interaction and page pings.
+    snowplow__session_aggregations:
+      - {type: countd, alias: num_article_views,
+         field: "case when UNSTRUCT_EVENT_COM_DEMO_MEDIA_ARTICLE_INTERACTION_1:type::varchar = 'view' then event_id end"}
+      - {type: countd, alias: num_articles_viewed,
+         field: "case when UNSTRUCT_EVENT_COM_DEMO_MEDIA_ARTICLE_INTERACTION_1:type::varchar = 'view' then CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:article_id::varchar end"}
+      - {type: countd, alias: num_articles_read,
+         field: "case when event_name = 'page_ping' then CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:article_id::varchar end"}
+      - {type: count, alias: num_article_pings,
+         field: "case when event_name = 'page_ping' and CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:article_id is not null then 1 end"}
+      - {type: countd, alias: num_categories_viewed,
+         field: "case when UNSTRUCT_EVENT_COM_DEMO_MEDIA_ARTICLE_INTERACTION_1:type::varchar = 'view' then CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:category::varchar end"}
+      - {type: countd, alias: num_article_impressions,
+         field: "case when UNSTRUCT_EVENT_COM_DEMO_MEDIA_ARTICLE_INTERACTION_1:type::varchar = 'impression' then event_id end"}
+
+    # Users: lifetime reading (loyalty tiers), aggregated over the session columns above.
+    snowplow__user_aggregations:
+      - {type: sum, alias: lifetime_article_views, field: num_article_views}
+      - {type: sum, alias: lifetime_articles_read, field: num_articles_read}
+      - {type: sum, alias: lifetime_article_pings, field: num_article_pings}
+      - {type: max, alias: max_categories_in_session, field: num_categories_viewed}
+
+    # Conversions: a paid subscription is iglu:com.demo.media/subscription_workflow at step confirm_payment.
+    # The schema carries the plan (value = monthly/annually), not revenue, so cv_value falls back to 0.
+    snowplow__conversion_events:
+      - {name: subscribe,
+         condition: "UNSTRUCT_EVENT_COM_DEMO_MEDIA_SUBSCRIPTION_WORKFLOW_1:step_name::varchar = 'confirm_payment'",
+         value: "UNSTRUCT_EVENT_COM_DEMO_MEDIA_SUBSCRIPTION_WORKFLOW_1:revenue::decimal(22,2)",
+         default_value: 0}
+
+  snowplow_media_player:
+    snowplow__license_accepted: true
+    snowplow__database: "{{ env_var('SNOWPLOW_EVENTS_DATABASE', 'SNOWPLOW_SALES_AWS_PROD1_DB') }}"
+    snowplow__atomic_schema: "{{ env_var('SNOWPLOW_EVENTS_SCHEMA', 'ATOMIC') }}"
+    snowplow__start_date: "{{ env_var('SNOWPLOW_START_DATE', '2026-06-01') }}"
+    snowplow__app_id: ['demo_media_publishing_web']
+    snowplow__backfill_limit_days: 180
+    snowplow__session_lookback_days: 365
+    # Daily Query uses the media plugin (media_player v2 + media_session).
+    snowplow__enable_media_player_v1: false
+    snowplow__enable_media_player_v2: true
+    snowplow__enable_media_session: true
+    # Kept on so the media tables keep the columns the app was built against.
+    snowplow__enable_whatwg_media: true
+    snowplow__enable_whatwg_video: true
+    snowplow__enable_youtube: false
+    snowplow__enable_media_ad: false
+    snowplow__enable_media_ad_break: false
+    snowplow__enable_ad_quartile_event: false
+    snowplow__enable_web_events: true
+    snowplow__enable_mobile_events: false
