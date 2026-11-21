@@ -11,10 +11,10 @@
     3. Drop the replacements and the Media Player tables this project left there.
 
   Run from Console as the data modeling connection (DATAMODELING_ROLE), while the Sales AWS model is
-  not running (it runs at about :02 past each hour; aim for :20 to :55):
-    dbt deps
-    dbt run-operation restore_dbt_sales_aws                            (dry run: logs the plan only)
-    dbt run-operation restore_dbt_sales_aws --args '{dry_run: false}'  (does it)
+  not running (it runs at about :02 past each hour; aim for :20 to :55). Console only offers dbt run,
+  so it is called from two models that act only when selected on their own:
+    dbt run --select restore_dbt_sales_aws_plan    (dry run: logs the plan only)
+    dbt run --select restore_dbt_sales_aws_apply   (does it)
   Safe to run twice: tables already restored are skipped.
 #}
 {% macro restore_dbt_sales_aws(dry_run=true) %}
