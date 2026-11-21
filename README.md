@@ -4,7 +4,7 @@ Builds the tables behind the Content Analytics Snowflake app from the Daily Quer
 
 | | |
 |---|---|
-| Source | `SNOWPLOW_SALES_AWS_PROD1_DB.ATOMIC.EVENTS`, `app_id = 'demo_media_publishing_web'` |
+| Source | `SNOWPLOW_SALES_AWS_PROD1_DB.ATOMIC.EVENTS`, `app_id in ('demo_media_publishing_web', 'demo-media-publishing-web')` (the hyphenated one is the site's earlier app ID, Jan to Oct 2026) |
 | Output (Console) | `SE_DEMO_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED`: point the app's `warehouse.snowflake.source` here |
 | Output (local dev) | `SE_DEMO_DB.DEV_DAILY_QUERY_DERIVED` |
 | Packages | `snowplow_unified` 1.0.1, `snowplow_media_player` 1.0.2 (pinned in `package-lock.yml`) |
@@ -49,7 +49,7 @@ dbt deps
 dbt build    # into SE_DEMO_DB.DEV_DAILY_QUERY_*
 ```
 
-Each run processes up to 180 days (`snowplow__backfill_limit_days`), so the first run covers the
+Each run processes up to 365 days (`snowplow__backfill_limit_days`), so the first run covers the
 whole history. Later runs only process new events. To rebuild from scratch:
 
 ```bash

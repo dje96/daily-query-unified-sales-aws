@@ -1,6 +1,7 @@
 # Daily Query: Content Analytics dbt project (Snowflake)
 #
-# Models the Daily Query demo site (app_id demo_media_publishing_web) from the Snowplow Sales AWS
+# Models the Daily Query demo site (app_ids demo_media_publishing_web and, before
+# June 2026, demo-media-publishing-web) from the Snowplow Sales AWS
 # pipeline into the tables the Content Analytics Snowflake app reads. Run from Console, they land in
 #   SE_DEMO_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_UNIFIED_{VIEWS,SESSIONS,USERS,USER_MAPPING,CONVERSIONS}
 #   SE_DEMO_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_MEDIA_PLAYER_{BASE,MEDIA_STATS,PLAYS_BY_PAGEVIEW}
@@ -115,7 +116,7 @@ on-run-end:
 # Daily Query source. Override with env vars to point at another events table.
 #   SNOWPLOW_EVENTS_DATABASE  default SNOWPLOW_SALES_AWS_PROD1_DB
 #   SNOWPLOW_EVENTS_SCHEMA    default ATOMIC
-#   SNOWPLOW_START_DATE       default 2026-06-01 (first Daily Query event: 2026-06-15)
+#   SNOWPLOW_START_DATE       default 2026-01-01 (first Daily Query event: 2026-01-28)
 
 vars:
   # Role the Content Analytics app reads with (see on-run-end).
@@ -125,9 +126,9 @@ vars:
     snowplow__license_accepted: true
     snowplow__database: "{{ env_var('SNOWPLOW_EVENTS_DATABASE', 'SNOWPLOW_SALES_AWS_PROD1_DB') }}"
     snowplow__atomic_schema: "{{ env_var('SNOWPLOW_EVENTS_SCHEMA', 'ATOMIC') }}"
-    snowplow__start_date: "{{ env_var('SNOWPLOW_START_DATE', '2026-06-01') }}"
-    snowplow__app_id: ['demo_media_publishing_web']
-    snowplow__backfill_limit_days: 180
+    snowplow__start_date: "{{ env_var('SNOWPLOW_START_DATE', '2026-01-01') }}"
+    snowplow__app_id: ['demo_media_publishing_web', 'demo-media-publishing-web']
+    snowplow__backfill_limit_days: 365
     snowplow__enable_web: true
     snowplow__enable_mobile: false
     # Enrichments and contexts Daily Query sends.
@@ -185,9 +186,9 @@ vars:
     snowplow__license_accepted: true
     snowplow__database: "{{ env_var('SNOWPLOW_EVENTS_DATABASE', 'SNOWPLOW_SALES_AWS_PROD1_DB') }}"
     snowplow__atomic_schema: "{{ env_var('SNOWPLOW_EVENTS_SCHEMA', 'ATOMIC') }}"
-    snowplow__start_date: "{{ env_var('SNOWPLOW_START_DATE', '2026-06-01') }}"
-    snowplow__app_id: ['demo_media_publishing_web']
-    snowplow__backfill_limit_days: 180
+    snowplow__start_date: "{{ env_var('SNOWPLOW_START_DATE', '2026-01-01') }}"
+    snowplow__app_id: ['demo_media_publishing_web', 'demo-media-publishing-web']
+    snowplow__backfill_limit_days: 365
     snowplow__session_lookback_days: 365
     # Daily Query uses the media plugin (media_player v2 + media_session).
     snowplow__enable_media_player_v1: false
