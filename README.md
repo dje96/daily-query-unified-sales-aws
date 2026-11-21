@@ -62,7 +62,9 @@ Scheduled from Snowplow Console (Sales AWS org), following
    Directory path empty (project at the repo root).
 3. **Data modeling connection**: the Sales AWS one (`ANALYTICS_DEV_DB`, schema `DBT_SALES_AWS`,
    `DATAMODELING_ROLE`). Console overrides `profiles.yml` with it; output goes to
-   `DBT_SALES_AWS_DAILY_QUERY_*`.
+   `DBT_SALES_AWS_DAILY_QUERY_*`. After each run, an `on-run-end` hook grants the app's role
+   (`daily_query_reader_role`, default `SE_DEMO_ROLE`) read access to `DBT_SALES_AWS_DAILY_QUERY_DERIVED`.
+   One-time admin prerequisite: `grant usage on database ANALYTICS_DEV_DB to role SE_DEMO_ROLE;`
 4. **Add run configuration > Add schedule**: hourly, commands `dbt deps` then `dbt build`.
 
 Never run two builds of this project at once: Snowplow's incremental manifest expects one run at a

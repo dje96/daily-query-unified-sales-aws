@@ -99,12 +99,23 @@ seeds:
   snowplow_unified:
     +schema: daily_query_snowplow_manifest
 
+# Let the Content Analytics app's role read the output. The app runs as SE_DEMO_ROLE, which has no
+# access to ANALYTICS_DEV_DB of its own. Runs after every build, so grants survive full refreshes.
+# Skipped when the run itself uses that role (local dev). One-time prerequisite, by an admin:
+#   grant usage on database ANALYTICS_DEV_DB to role SE_DEMO_ROLE;
+on-run-end:
+  - "{% if target.role | upper != var('daily_query_reader_role') | upper %}grant usage on schema {{ target.database }}.{{ target.schema }}_daily_query_derived to role {{ var('daily_query_reader_role') }}{% else %}select 1{% endif %}"
+  - "{% if target.role | upper != var('daily_query_reader_role') | upper %}grant select on all tables in schema {{ target.database }}.{{ target.schema }}_daily_query_derived to role {{ var('daily_query_reader_role') }}{% else %}select 1{% endif %}"
+
 # Daily Query source. Override with env vars to point at another events table.
 #   SNOWPLOW_EVENTS_DATABASE  default SNOWPLOW_SALES_AWS_PROD1_DB
 #   SNOWPLOW_EVENTS_SCHEMA    default ATOMIC
 #   SNOWPLOW_START_DATE       default 2026-06-01 (first Daily Query event: 2026-06-15)
 
 vars:
+  # Role the Content Analytics app reads with (see on-run-end).
+  daily_query_reader_role: SE_DEMO_ROLE
+
   snowplow_unified:
     snowplow__license_accepted: true
     snowplow__database: "{{ env_var('SNOWPLOW_EVENTS_DATABASE', 'SNOWPLOW_SALES_AWS_PROD1_DB') }}"
