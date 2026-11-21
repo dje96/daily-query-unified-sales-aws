@@ -8,26 +8,15 @@
 #   SNOWFLAKE_ROLE         default SE_DEMO_ROLE
 #   SNOWFLAKE_WAREHOUSE    default READONLY_WH
 #   SNOWFLAKE_DATABASE     default SE_DEMO_DB
-#   DBT_DEV_SCHEMA         dev target only, default DAILY_QUERY_DEV
+#   DBT_DEV_SCHEMA         default DEV
 #
-# prod writes to SE_DEMO_DB.CONTENT_ANALYTICS_DERIVED, the schema the Content Analytics app reads.
-# dev writes to <DBT_DEV_SCHEMA>_DERIVED, so you can test without touching the app's tables.
+# For local testing only. Console runs ignore this file and use the Console data modeling connection
+# (ANALYTICS_DEV_DB, schema DBT_SALES_AWS). Output goes to <schema>_DAILY_QUERY_{DERIVED,SCRATCH,
+# SNOWPLOW_MANIFEST}, so dev lands in SE_DEMO_DB.DEV_DAILY_QUERY_*.
 
 daily_query:
   target: dev
   outputs:
-    prod:
-      type: snowflake
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
-      private_key: "{{ env_var('SNOWFLAKE_PRIVATE_KEY') }}"
-      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
-      role: "{{ env_var('SNOWFLAKE_ROLE', 'SE_DEMO_ROLE') }}"
-      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'READONLY_WH') }}"
-      database: "{{ env_var('SNOWFLAKE_DATABASE', 'SE_DEMO_DB') }}"
-      schema: CONTENT_ANALYTICS
-      threads: 8
-      query_tag: daily_query_dbt
     dev:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
@@ -37,6 +26,6 @@ daily_query:
       role: "{{ env_var('SNOWFLAKE_ROLE', 'SE_DEMO_ROLE') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'READONLY_WH') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'SE_DEMO_DB') }}"
-      schema: "{{ env_var('DBT_DEV_SCHEMA', 'DAILY_QUERY_DEV') }}"
+      schema: "{{ env_var('DBT_DEV_SCHEMA', 'DEV') }}"
       threads: 8
       query_tag: daily_query_dbt_dev

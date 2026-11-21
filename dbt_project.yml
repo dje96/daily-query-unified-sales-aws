@@ -1,13 +1,13 @@
 # Daily Query: Content Analytics dbt project (Snowflake)
 #
 # Models the Daily Query demo site (app_id demo_media_publishing_web) from the Snowplow Sales AWS
-# pipeline into the tables the Content Analytics Snowflake app reads:
-#   SE_DEMO_DB.CONTENT_ANALYTICS_DERIVED.SNOWPLOW_UNIFIED_{VIEWS,SESSIONS,USERS,USER_MAPPING,CONVERSIONS}
-#   SE_DEMO_DB.CONTENT_ANALYTICS_DERIVED.SNOWPLOW_MEDIA_PLAYER_{BASE,MEDIA_STATS,PLAYS_BY_PAGEVIEW}
+# pipeline into the tables the Content Analytics Snowflake app reads. Run from Console, they land in
+#   ANALYTICS_DEV_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_UNIFIED_{VIEWS,SESSIONS,USERS,USER_MAPPING,CONVERSIONS}
+#   ANALYTICS_DEV_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_MEDIA_PLAYER_{BASE,MEDIA_STATS,PLAYS_BY_PAGEVIEW}
 #
 # No custom models: snowplow_unified + snowplow_media_player, configured with Daily Query's
-# com.demo.media schemas. The output schema comes from the target's schema (profiles.yml) plus the
-# packages' suffixes: <schema>_derived, <schema>_scratch, <schema>_snowplow_manifest.
+# com.demo.media schemas. The output schema is the connection's (or profiles.yml target's) schema
+# plus the daily_query_ suffixes set under models: below.
 
 name: daily_query
 version: 1.0.0
@@ -27,6 +27,77 @@ dispatch:
     search_order: ['daily_query', 'snowplow_unified']
   - macro_namespace: dbt
     search_order: ['snowplow_utils', 'dbt']
+
+# Own schemas, never the packages' defaults. The Sales AWS Console connection (schema DBT_SALES_AWS)
+# already runs a Unified + Attribution model in DBT_SALES_AWS_{DERIVED,SCRATCH,SNOWPLOW_MANIFEST}.
+# Sharing those schemas means sharing table names and the incremental manifest, and on 2026-11-20
+# this project's first run replaced that model's tables. These overrides mirror the packages'
+# folder layout and give every model and seed a daily_query_ schema:
+#   <connection schema>_DAILY_QUERY_DERIVED / _DAILY_QUERY_SCRATCH / _DAILY_QUERY_SNOWPLOW_MANIFEST
+models:
+  snowplow_unified:
+    base:
+      manifest:
+        +schema: daily_query_snowplow_manifest
+      scratch:
+        +schema: daily_query_scratch
+    optional_modules:
+      app_errors:
+        +schema: daily_query_derived
+        scratch:
+          +schema: daily_query_scratch
+      consent:
+        +schema: daily_query_derived
+        scratch:
+          +schema: daily_query_scratch
+      conversions:
+        +schema: daily_query_derived
+        scratch:
+          +schema: daily_query_scratch
+      core_web_vitals:
+        +schema: daily_query_derived
+        scratch:
+          +schema: daily_query_scratch
+    views:
+      +schema: daily_query_derived
+      scratch:
+        +schema: daily_query_scratch
+    sessions:
+      +schema: daily_query_derived
+      scratch:
+        +schema: daily_query_scratch
+    user_mapping:
+      +schema: daily_query_derived
+    users:
+      +schema: daily_query_derived
+      scratch:
+        +schema: daily_query_scratch
+  snowplow_media_player:
+    base:
+      manifest:
+        +schema: daily_query_snowplow_manifest
+      scratch:
+        +schema: daily_query_scratch
+    media_base:
+      +schema: daily_query_derived
+      scratch:
+        +schema: daily_query_scratch
+    media_plays:
+      +schema: daily_query_derived
+    media_stats:
+      +schema: daily_query_derived
+    custom:
+      +schema: daily_query_scratch
+    media_ad_views:
+      +schema: daily_query_derived
+      scratch:
+        +schema: daily_query_scratch
+    media_ads:
+      +schema: daily_query_derived
+
+seeds:
+  snowplow_unified:
+    +schema: daily_query_snowplow_manifest
 
 # Daily Query source. Override with env vars to point at another events table.
 #   SNOWPLOW_EVENTS_DATABASE  default SNOWPLOW_SALES_AWS_PROD1_DB
