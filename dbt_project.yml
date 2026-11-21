@@ -2,8 +2,8 @@
 #
 # Models the Daily Query demo site (app_id demo_media_publishing_web) from the Snowplow Sales AWS
 # pipeline into the tables the Content Analytics Snowflake app reads. Run from Console, they land in
-#   ANALYTICS_DEV_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_UNIFIED_{VIEWS,SESSIONS,USERS,USER_MAPPING,CONVERSIONS}
-#   ANALYTICS_DEV_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_MEDIA_PLAYER_{BASE,MEDIA_STATS,PLAYS_BY_PAGEVIEW}
+#   SE_DEMO_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_UNIFIED_{VIEWS,SESSIONS,USERS,USER_MAPPING,CONVERSIONS}
+#   SE_DEMO_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED.SNOWPLOW_MEDIA_PLAYER_{BASE,MEDIA_STATS,PLAYS_BY_PAGEVIEW}
 #
 # No custom models: snowplow_unified + snowplow_media_player, configured with Daily Query's
 # com.demo.media schemas. The output schema is the connection's (or profiles.yml target's) schema
@@ -34,8 +34,13 @@ dispatch:
 # this project's first run replaced that model's tables. These overrides mirror the packages'
 # folder layout and give every model and seed a daily_query_ schema:
 #   <connection schema>_DAILY_QUERY_DERIVED / _DAILY_QUERY_SCRATCH / _DAILY_QUERY_SNOWPLOW_MANIFEST
+# All in SE_DEMO_DB (env var DAILY_QUERY_DATABASE overrides it), not the connection's database (ANALYTICS_DEV_DB):
+# the app's role owns SE_DEMO_DB but can't be given access to ANALYTICS_DEV_DB without an admin.
+# One-time prerequisite, as SE_DEMO_ROLE:
+#   grant usage, create schema on database SE_DEMO_DB to role DATAMODELING_ROLE;
 models:
   snowplow_unified:
+    +database: "{{ env_var('DAILY_QUERY_DATABASE', 'SE_DEMO_DB') }}"
     base:
       manifest:
         +schema: daily_query_snowplow_manifest
@@ -73,6 +78,7 @@ models:
       scratch:
         +schema: daily_query_scratch
   snowplow_media_player:
+    +database: "{{ env_var('DAILY_QUERY_DATABASE', 'SE_DEMO_DB') }}"
     base:
       manifest:
         +schema: daily_query_snowplow_manifest
@@ -97,12 +103,12 @@ models:
 
 seeds:
   snowplow_unified:
+    +database: "{{ env_var('DAILY_QUERY_DATABASE', 'SE_DEMO_DB') }}"
     +schema: daily_query_snowplow_manifest
 
-# Let the Content Analytics app's role read the output. The app runs as SE_DEMO_ROLE, which has no
-# access to ANALYTICS_DEV_DB of its own. Runs after every build, so grants survive full refreshes.
-# Skipped when the run itself uses that role (local dev). One-time prerequisite, by an admin:
-#   grant usage on database ANALYTICS_DEV_DB to role SE_DEMO_ROLE;
+# Let the Content Analytics app's role read the output: the Console job's role owns the schemas it
+# creates. Runs after every build, so grants survive full refreshes. Skipped when the run itself uses
+# that role (local dev). See macros/daily_query_grant_reader.sql.
 on-run-end:
   - "{{ daily_query_grant_reader() }}"
 
