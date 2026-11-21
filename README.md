@@ -5,7 +5,7 @@ Builds the tables behind the Content Analytics Snowflake app from the Daily Quer
 | | |
 |---|---|
 | Source | `SNOWPLOW_SALES_AWS_PROD1_DB.ATOMIC.EVENTS`, `app_id = 'demo_media_publishing_web'` |
-| Output (Console) | `ANALYTICS_DEV_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED`: point the app's `warehouse.snowflake.source` here |
+| Output (Console) | `SE_DEMO_DB.DBT_SALES_AWS_DAILY_QUERY_DERIVED`: point the app's `warehouse.snowflake.source` here |
 | Output (local dev) | `SE_DEMO_DB.DEV_DAILY_QUERY_DERIVED` |
 | Packages | `snowplow_unified` 1.0.1, `snowplow_media_player` 1.0.2 (pinned in `package-lock.yml`) |
 
@@ -16,6 +16,10 @@ There are no custom models. The project configures Snowplow's packages for Daily
 > same table names, same incremental manifest: sharing those schemas replaces that model's tables
 > (it happened on 2026-11-20). `dbt_project.yml` therefore sends every model and seed to
 > `daily_query_*` schemas. Keep those overrides, and mirror any new package folder in them.
+>
+> **Own database too.** Everything is built in `SE_DEMO_DB` (`+database`, override with env var
+> `DAILY_QUERY_DATABASE`), not the connection's `ANALYTICS_DEV_DB`. The app's role `SE_DEMO_ROLE` owns
+> `SE_DEMO_DB`; giving it `ANALYTICS_DEV_DB` would need SECURITYADMIN.
 
 ## What it adds to the standard tables
 
@@ -61,11 +65,13 @@ Scheduled from Snowplow Console (Sales AWS org), following
 2. **Modeling > Model projects > Create model project**: "I already have a dbt project configured",
    Directory path empty (project at the repo root).
 3. **Data modeling connection**: the Sales AWS one (`ANALYTICS_DEV_DB`, schema `DBT_SALES_AWS`,
-   `DATAMODELING_ROLE`). Console overrides `profiles.yml` with it; output goes to
-   `DBT_SALES_AWS_DAILY_QUERY_*`. After each run, an `on-run-end` hook grants the app's role
-   (`daily_query_reader_role`, default `SE_DEMO_ROLE`) read access to `DBT_SALES_AWS_DAILY_QUERY_DERIVED`.
-   One-time admin prerequisite: `grant usage on database ANALYTICS_DEV_DB to role SE_DEMO_ROLE;`
-4. **Add run configuration > Add schedule**: hourly, commands `dbt deps` then `dbt build`.
+   `DATAMODELING_ROLE`). Console overrides `profiles.yml` with it. Output goes to
+   `SE_DEMO_DB.DBT_SALES_AWS_DAILY_QUERY_*`. After each run, an `on-run-end` hook grants the app's role
+   (`daily_query_reader_role`, default `SE_DEMO_ROLE`) read access to the derived schema.
+   One-time prerequisite, run as `SE_DEMO_ROLE`:
+   `grant usage, create schema on database SE_DEMO_DB to role DATAMODELING_ROLE;`
+4. **Add run configuration > Add schedule**: commands `dbt seed` then `dbt run` (Console runs
+   `dbt deps` itself and only offers `run`, `seed`, `snapshot` and `test`).
 
 Never run two builds of this project at once: Snowplow's incremental manifest expects one run at a
 time.
