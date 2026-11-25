@@ -25,7 +25,7 @@ There are no custom models. The project configures Snowplow's packages for Daily
 
 | Table | Columns | From |
 |---|---|---|
-| `snowplow_unified_views` | `article_id`, `article_title`, `article_author`, `article_category`, `article_tags` | `iglu:com.demo.media/article` entity |
+| `snowplow_unified_views` | `article_id`, `article_title`, `article_author`, `article_category`, `article_tags`, `article_image_url` | `iglu:com.demo.media/article` entity |
 | `snowplow_unified_sessions` | `num_article_views`, `num_articles_viewed`, `num_articles_read`, `num_article_pings`, `num_categories_viewed`, `num_article_impressions` | `com.demo.media/article_interaction` and page pings |
 | `snowplow_unified_users` | `lifetime_article_views`, `lifetime_articles_read`, `lifetime_article_pings`, `max_categories_in_session` | the session columns above |
 | `snowplow_unified_conversions` | `subscribe` conversion | `com.demo.media/subscription_workflow`, step `confirm_payment` |
@@ -33,6 +33,7 @@ There are no custom models. The project configures Snowplow's packages for Daily
 | `snowplow_media_player_*` | plays, watch time, completion | media plugin (`media_player` v2, `media_session`) |
 
 Known gaps in the Daily Query data: `article_tags` is always null (the article entity has no tags),
+`article_image_url` is null until the site sends `image_url` (article 1-0-1, optional),
 `cv_value` is 0 (the subscription event carries the plan, not revenue), and `num_article_impressions`
 is 0 (only `view` interactions are tracked).
 
@@ -81,5 +82,7 @@ time.
 - Another site or app ID: `snowplow__app_id` in both package blocks of `dbt_project.yml`.
 - Another events table: env vars `SNOWPLOW_EVENTS_DATABASE`, `SNOWPLOW_EVENTS_SCHEMA`, `SNOWPLOW_START_DATE`.
 - Tracker activity tracking changed: keep `snowplow__heartbeat` / `snowplow__min_visit_length` equal to it.
-- New columns or changed passthroughs need a full refresh (above; in Console, a one-off schedule with that command).
+- A new passthrough column is added by a normal `dbt run` (`on_schema_change: append_new_columns`), null for rows
+  already processed. Backfilling it, or changing an existing passthrough, needs a full refresh (above; in Console,
+  a one-off schedule with that command).
 - The app depends on the column names above, so don't rename them.

@@ -145,12 +145,14 @@ vars:
 
     # Views: article metadata (iglu:com.demo.media/article) on every page view.
     # Daily Query's article entity has no tags field; article_tags stays null but the app expects the column.
+    # image_url arrived in article 1-0-1 (optional); article_image_url is null for events without it.
     snowplow__view_passthroughs:
       - {alias: article_id,       sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:article_id::varchar"}
       - {alias: article_title,    sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:title::varchar"}
       - {alias: article_author,   sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:author::varchar"}
       - {alias: article_category, sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:category::varchar"}
       - {alias: article_tags,     sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:tags"}
+      - {alias: article_image_url, sql: "CONTEXTS_COM_DEMO_MEDIA_ARTICLE_1[0]:image_url::varchar"}
 
     # Sessions: reading behaviour, from iglu:com.demo.media/article_interaction and page pings.
     snowplow__session_aggregations:
